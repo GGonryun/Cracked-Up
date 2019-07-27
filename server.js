@@ -23,22 +23,31 @@ app.get('/', function (req, res) {
 });
 
 
-app.get('/game/:roomName/user/:userName', function (req, res) {
+app.get('/game', function (req, res) {
   res.sendFile(__dirname + '/public/html/game.html');
-  ioGame.emit('test');
 });
 
 //game management;
 let _games = new Map();
-/*
-  Key: roomName
-  Value: {
-    players: [a, b, c, d];
-  }
-*/
+let _players = new Map();
 
 ioGame.on('connection', function (socket) {
   console.log(`A new socket ${socket.id} has entered the game!`);
+  socket.on('load game', function (roomName, userName) {
+    if (!_games.has(roomName)) {
+      _games.set(roomName, {
+        players: [socket.id],
+      });
+    }
+    else {
+      _games.get(roomName).players.push(socket.id);
+    }
+
+    socket.join(roomName);
+    console.log(`User ${userName} has entered ${roomName}`);
+    ioGame.to(roomName).emit('test', roomName);
+  });
+
 });
 
 //lobby management
@@ -47,13 +56,27 @@ let _users = new Map();
 ioLobby.on('connection', function (socket) {
   //initialization
   console.log(`Socket ${socket.id} has connected`);
-  _users.set(socket.id, socket.id.substring(socket.id.indexOf('#') + 1, socket.id.length));
+  let defaultUsername = socket.id.substring(socket.id.indexOf('#') + 1, socket.id.length);
+
+  _users.set(socket.id, defaultUsername);
+  socket.emit('connect success', defaultUsername);
   ioLobby.emit('update users', Array.from(_users.values()));
   ioLobby.emit('update rooms', Array.from(_rooms.values()));
 
   //callbacks
   socket.on('disconnect', function () {
     console.log(`A user has disconnected: ${socket.id}.`);
+    let username = _users.get(socket.id);
+    _rooms.forEach(function (room) {
+      if (room.users.includes(username)) {
+        if (room.users.length > 1) {
+          room.users.splice(room.users.indexOf(username), 1);
+        } else {
+          _rooms.delete(room.name);
+        }
+        ioLobby.emit('update rooms', Array.from(_rooms.values()));
+      };
+    });
     _users.delete(socket.id);
     io.emit('update users', Array.from(_users.values()));
   });
@@ -110,6 +133,7 @@ ioLobby.on('connection', function (socket) {
   });
 
   socket.on('close room', function (roomName) {
+
     console.log(_users.get(socket.id));
     ioLobby.in(roomName).emit('launch game', roomName, _users.get(socket.id));
     _rooms.delete(roomName);

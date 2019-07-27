@@ -6,6 +6,7 @@
   <script src='/js/phaser.min.js'></script>
   <script src='/js/jquery.min.js'></script>
   <script src='/socket.io/socket.io.js'></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js"></script>
   <title>Game in Progress</title>
 </head>
 
@@ -13,8 +14,10 @@
   <script>
     var socket = io('/game');
 
-    socket.on('test', function () {
-      alert('game start!');
+    socket.emit('load game', Cookies.get('roomname'), Cookies.get('username'));
+
+    socket.on('test', function (roomName) {
+      console.log('ack i am in game room: ' + roomName);
     });
 
   </script>

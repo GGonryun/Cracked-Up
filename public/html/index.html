@@ -6,18 +6,18 @@
   <script src='/js/jquery.min.js'></script>
   <script src='/socket.io/socket.io.js'></script>
   <script src='/js/phaser.min.js'></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js"></script>
   <link rel='stylesheet' href='css/rpgui.min.css'>
 </head>
 
 <body>
   <script>
-    let status = {
-      roomName: "",
-      userName: "",
-    }
-
     //sockets:
     var socket = io('/lobby');
+
+    socket.on('connect success', function (username) {
+      Cookies.set('username', username);
+    });
 
     socket.on('update users', function (users) {
       $('#players').empty();
@@ -53,7 +53,7 @@
       $('#room-creation').attr('hidden', 'hidden');
       $('#room-controls').removeAttr('hidden');
       $('#room-title').text(room.name);
-      status.roomName = room.name;
+      Cookies.set('roomname', room.name);
       $('#room-players').empty();
       room.users.forEach(function (user) {
         $('#room-players').append(`<li id='player-${user}'>${user}</li>`);
@@ -63,18 +63,18 @@
     socket.on('leave success', function () {
       $('#room-creation').removeAttr('hidden');
       $('#room-controls').attr('hidden', 'hidden');
-      status.roomName = "N/A";
+      Cookies.set('roomname', "");
     });
 
     socket.on('launch game', function (roomName, socketName) {
-      let redirectTo = `${document.URL}game/${roomName}/user/${socketName}`;
+      let redirectTo = `${document.URL}game`;
       window.location.replace(redirectTo);
     });
 
     // on load
     $(document).ready(function () {
-      status.userName = socket.id;
-      status.roomName = "N/A";
+      Cookies.set('username', '');
+      Cookies.set('roomname', '');
 
       $('#room-name').val('Room ' + Phaser.Math.Between(0, 100000));
 
@@ -86,12 +86,11 @@
 
       $('#leave-room').on('click', function () {
         console.log('leaving room');
-        let roomName = status.roomName;
-        socket.emit('leave room', roomName);
+        socket.emit('leave room', Cookies.get('roomname'));
       });
 
       $('#launch-game').on('click', function () {
-        socket.emit('close room', status.roomName);
+        socket.emit('close room', Cookies.get('roomname'));
       });
 
     });
