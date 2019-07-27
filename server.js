@@ -44,12 +44,12 @@ ioGame.on('connection', function (socket) {
 //lobby management
 let _rooms = new Map();
 let _users = new Map();
-io.on('connection', function (socket) {
+ioLobby.on('connection', function (socket) {
   //initialization
   console.log(`Socket ${socket.id} has connected`);
-  _users.set(socket.id, socket.id);
-  io.emit('update users', Array.from(_users.values()));
-  io.emit('update rooms', Array.from(_rooms.values()));
+  _users.set(socket.id, socket.id.substring(socket.id.indexOf('#') + 1, socket.id.length));
+  ioLobby.emit('update users', Array.from(_users.values()));
+  ioLobby.emit('update rooms', Array.from(_rooms.values()));
 
   //callbacks
   socket.on('disconnect', function () {
@@ -65,7 +65,7 @@ io.on('connection', function (socket) {
         users: [],
         capacity: 4,
       });
-      io.emit('update rooms', Array.from(_rooms.values()));
+      ioLobby.emit('update rooms', Array.from(_rooms.values()));
       console.log(`A new room ${roomName} has been created!`);
     }
   });
@@ -76,10 +76,10 @@ io.on('connection', function (socket) {
       // join the new room
       socket.join(roomName);
       // add yourself to the room list.
-      room.users.push(socket.id);
+      room.users.push(_users.get(socket.id));
       // let everyone else know.
       socket.to(roomName).emit('update room', room);
-      io.emit('update rooms', Array.from(_rooms.values()));
+      ioLobby.emit('update rooms', Array.from(_rooms.values()));
 
       socket.emit('join success', room);
       console.log(`User: ${_users.get(socket.id)} has successfully joined the room ${roomName}.`);
@@ -91,17 +91,18 @@ io.on('connection', function (socket) {
 
   socket.on('leave room', function (roomName) {
     let room = _rooms.get(roomName);
-    if (room && room.users.includes(socket.id)) {
+    let user = _users.get(socket.id);
+    if (room && room.users.includes(user)) {
       if (room.users.length > 1) {
-        room.users.splice(room.users.indexOf(socket.id), 1);
+        room.users.splice(room.users.indexOf(user), 1);
         socket.to(roomName).emit('update room', room);
       } else {
         _rooms.delete(roomName);
       }
       socket.leave(roomName);
-      io.emit('update rooms', Array.from(_rooms.values()));
+      ioLobby.emit('update rooms', Array.from(_rooms.values()));
       socket.emit('leave success', room);
-      console.log(`User: ${socket.id} has left room ${roomName}.`);
+      console.log(`User: ${user} has left room ${roomName}.`);
     }
     else {
       console.log(`Invalid State for Socket ${socket.id}, cannot leave ${roomName} since you don't belong to it.`);
@@ -109,7 +110,8 @@ io.on('connection', function (socket) {
   });
 
   socket.on('close room', function (roomName) {
-    io.in(roomName).emit('launch game', roomName, _users.get(socket.id));
+    console.log(_users.get(socket.id));
+    ioLobby.in(roomName).emit('launch game', roomName, _users.get(socket.id));
     _rooms.delete(roomName);
     socket.broadcast.emit('update rooms', Array.from(_rooms.values()));
   });

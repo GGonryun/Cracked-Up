@@ -17,7 +17,7 @@
     }
 
     //sockets:
-    var socket = io();
+    var socket = io('/lobby');
 
     socket.on('update users', function (users) {
       $('#players').empty();
@@ -66,8 +66,8 @@
       status.roomName = "N/A";
     });
 
-    socket.on('launch game', function () {
-      let redirectTo = `${document.URL}game/${status.roomName}/user/${status.userName}`;
+    socket.on('launch game', function (roomName, socketName) {
+      let redirectTo = `${document.URL}game/${roomName}/user/${socketName}`;
       window.location.replace(redirectTo);
     });
 
