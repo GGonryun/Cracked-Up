@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <script></script>
+  <script src='/js/phaser.min.js'></script>
+  <script src='/js/jquery.min.js'></script>
+  <script src='/socket.io/socket.io.js'></script>
+  <title>Game in Progress</title>
+</head>
+
+<body>
+  <script>
+    var socket = io('/game');
+
+    socket.on('test', function () {
+      alert('game start!');
+    });
+
+  </script>
+</body>
+
+</html>

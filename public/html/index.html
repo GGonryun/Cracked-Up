@@ -11,7 +11,6 @@
 
 <body>
   <script>
-
     let status = {
       roomName: "",
       userName: "",
@@ -28,21 +27,73 @@
     });
 
     socket.on('update rooms', function (rooms) {
-      console.log(rooms);
+      $('#rooms').empty();
+      rooms.forEach(function (room) {
+        let roomId = `room-${str = room.name.replace(/\s/g, '')}`;
+        let occupancy = room.users.length;
+        let capacity = room.capacity;
+        let isFull = occupancy == capacity;
+
+        $('#rooms').append(`<li><button id='${roomId}' ${isFull ? 'disabled' : ''}>Join ${room.name} [${occupancy}/${capacity}]</button></li>`);
+        $('#' + roomId).on('click', function () {
+          socket.emit('join room', room.name);
+        });
+      });
     });
 
-    //jquery
+    //room related:
+    socket.on('update room', function (room) {
+      $('#room-players').empty();
+      room.users.forEach(function (user) {
+        $('#room-players').append(`<li id='player-${user}'>${user}</li>`);
+      });
+    });
+
+    socket.on('join success', function (room) {
+      $('#room-creation').attr('hidden', 'hidden');
+      $('#room-controls').removeAttr('hidden');
+      $('#room-title').text(room.name);
+      status.roomName = room.name;
+      $('#room-players').empty();
+      room.users.forEach(function (user) {
+        $('#room-players').append(`<li id='player-${user}'>${user}</li>`);
+      });
+    });
+
+    socket.on('leave success', function () {
+      $('#room-creation').removeAttr('hidden');
+      $('#room-controls').attr('hidden', 'hidden');
+      status.roomName = "N/A";
+    });
+
+    socket.on('launch game', function () {
+      let redirectTo = `${document.URL}game/${status.roomName}/user/${status.userName}`;
+      window.location.replace(redirectTo);
+    });
+
+    // on load
     $(document).ready(function () {
       status.userName = socket.id;
       status.roomName = "N/A";
 
       $('#room-name').val('Room ' + Phaser.Math.Between(0, 100000));
 
-      $('button').on('click', function () {
+      $('#create-room').on('click', function () {
         let roomName = $('#room-name').val();
         socket.emit('new room', roomName);
         socket.emit('join room', roomName);
       });
+
+      $('#leave-room').on('click', function () {
+        console.log('leaving room');
+        let roomName = status.roomName;
+        socket.emit('leave room', roomName);
+      });
+
+      $('#launch-game').on('click', function () {
+        socket.emit('close room', status.roomName);
+      });
+
     });
   </script>
   <div>
@@ -59,14 +110,18 @@
 
     <h1>Rooms:</h1>
     <div>
-      <ul id='rooms'></ul>
-      <span id='room-creation'>
+      <div id='room-creation'>
+        <ul id='rooms'></ul>
         Room Name: <input type='text' id='room-name' value=''>
         <button id='create-room'>Create Room</button>
-      </span>
-      <span id='room-controls' hidden>
+      </div>
+      <div id='room-controls' hidden>
+        <h1 id='room-title'>ROOM</h1>
+        <h2>Players:</h2>
+        <ul id='room-players'></ul>
+        <button id='launch-game'>Start Game</button>
         <button id='leave-room'>Leave Room</button>
-      </span>
+      </div>
     </div>
   </div>
 </body>
