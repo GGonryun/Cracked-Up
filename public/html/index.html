@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Lobby Selection</title>
+  <script src='/js/jquery.min.js'></script>
+  <script src='/socket.io/socket.io.js'></script>
+  <link rel='stylesheet' href='css/rpgui.min.css'>
+
+</head>
+
+<body>
+  <script>
+    $(function () {
+      var socket = io('/player-status');
+      socket.on('update users', function (id) {
+        alert(id);
+      });
+    }); 
+  </script>
+  <div>
+    <h1>Welcome to the game!</h1>
+  </div>
+  <div>
+    <h1>Status:</h1>
+    <span>
+      <h3>Players connected: </h3>
+      <ul id='players'>0</ul>
+    </span>
+  </div>
+</body>
+
+</html>
