@@ -5,18 +5,45 @@
   <title>Lobby Selection</title>
   <script src='/js/jquery.min.js'></script>
   <script src='/socket.io/socket.io.js'></script>
+  <script src='/js/phaser.min.js'></script>
   <link rel='stylesheet' href='css/rpgui.min.css'>
-
 </head>
 
 <body>
   <script>
-    $(function () {
-      var socket = io('/player-status');
-      socket.on('update users', function (id) {
-        alert(id);
+
+    let status = {
+      roomName: "",
+      userName: "",
+    }
+
+    //sockets:
+    var socket = io();
+
+    socket.on('update users', function (users) {
+      $('#players').empty();
+      users.forEach(function (user) {
+        $('#players').append('<li>' + user + '</li>');
       });
-    }); 
+    });
+
+    socket.on('update rooms', function (rooms) {
+      console.log(rooms);
+    });
+
+    //jquery
+    $(document).ready(function () {
+      status.userName = socket.id;
+      status.roomName = "N/A";
+
+      $('#room-name').val('Room ' + Phaser.Math.Between(0, 100000));
+
+      $('button').on('click', function () {
+        let roomName = $('#room-name').val();
+        socket.emit('new room', roomName);
+        socket.emit('join room', roomName);
+      });
+    });
   </script>
   <div>
     <h1>Welcome to the game!</h1>
@@ -25,8 +52,22 @@
     <h1>Status:</h1>
     <span>
       <h3>Players connected: </h3>
-      <ul id='players'>0</ul>
     </span>
+    <ul id='players'></ul>
+  </div>
+  <div>
+
+    <h1>Rooms:</h1>
+    <div>
+      <ul id='rooms'></ul>
+      <span id='room-creation'>
+        Room Name: <input type='text' id='room-name' value=''>
+        <button id='create-room'>Create Room</button>
+      </span>
+      <span id='room-controls' hidden>
+        <button id='leave-room'>Leave Room</button>
+      </span>
+    </div>
   </div>
 </body>
 
