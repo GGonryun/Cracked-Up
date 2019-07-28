@@ -1,5 +1,9 @@
 "use strict";
-
+const SCREEN_WIDTH = 1100;
+const SCREEN_HEIGHT = 540;
+const BACKGROUND_WIDTH = 12000;
+const BACKGROUND_HEIGHT = 1000;
+const scale = .2;
 let express = require('express');
 let app = express();
 let http = require('http');
@@ -8,6 +12,7 @@ let io = require('socket.io')(server);
 let port = 3000;
 const ioGame = io.of('/game');
 const ioLobby = io.of('/lobby');
+const GAME_TIMER = 5000;
 
 server.listen(port, function () {
   console.log("Listening on port 3000!");
@@ -40,14 +45,15 @@ ioGame.on('connection', function (socket) {
     let player = {
       id: socket.id,
       z: 0,
-      x: Math.floor(Math.random() * 400) + 50,
-      y: Math.floor(Math.random() * 800) + 50,
+      x: Math.floor(Math.random() * SCREEN_WIDTH / 4) + 200,
+      y: Math.floor(Math.random() * BACKGROUND_HEIGHT / 2) + 100,
       size: 2,
       name: userName,
-      room: roomName
+      room: roomName,
+      ready: false
     };
 
-    let waterdropPos = { x: 2200 / 1.2, y: 1080 / 1.10 }
+    let waterdropPos = { x: SCREEN_WIDTH, y: BACKGROUND_HEIGHT / 1.10 }
     if (!_games.has(roomName)) {
       game = {
         players: {},
@@ -81,12 +87,22 @@ ioGame.on('connection', function (socket) {
     socket.to(roomName).emit('remove player', player);
   });
 
-  socket.on('player moved', function (roomName, vector3) {
+  socket.on('player update', function (roomName, vector3, size) {
     let game = _games.get(roomName);
     if (game) {
       let player = game.players[socket.id];
       if (player) {
-        socket.to(roomName).emit('player movement', player.name, vector3);
+        player.x = vector3 ? vector3.x : player.x;
+        player.y = vector3 ? vector3.y : player.y;
+        player.z = vector3 ? vector3.z : player.z;
+        player.size = size;
+        socket.to(roomName).emit('update player', player);
+        if (size < 0) {
+          delete game.players[socket.id];
+          if (game.players.length < 1) {
+            _games.delete(game);
+          }
+        }
       }
     }
   });
@@ -94,18 +110,37 @@ ioGame.on('connection', function (socket) {
   socket.on('remove waterdrop', function (roomName, inProgress) {
     let game = _games.get(roomName);
     if (game) {
+      //start game on first star;
       if (!game.inProgress && inProgress) {
-        //start game on first star;
         game.inProgress = true;
-        ioGame.to(roomName).emit('play game'); //todo: CONSUME this.
-
-        setInterval(function () {
-          ioGame.to(roomName).emit('countdown');
-        }, 1000);
+        ioGame.to(roomName).emit('start game'); //todo: CONSUME this.
       }
-      let newPos = { x: game.waterdrop.x + 1000, y: game.waterdrop.y + ((Math.random() * 200) - 100) }
+      let y = game.waterdrop.y + (Math.random() * -250) + 200;
+      y = y < BACKGROUND_HEIGHT / 1.1 ? y : y - SCREEN_HEIGHT / 2;
+      let x = game.waterdrop.x + SCREEN_WIDTH;
+      let newPos = { x, y };
       game.waterdrop = newPos;
       ioGame.to(roomName).emit('create waterdrop', newPos.x, newPos.y);
+    }
+  });
+
+  socket.on('player ready', function (roomName) {
+    let game = _games.get(roomName);
+    if (game) {
+      let player = game.players[socket.id];
+      player.ready = true;
+      console.log('player is ready');
+      for (let id in game.players) {
+        if (game.players.hasOwnProperty(id)) {
+          if (game.players[id].ready == false) {
+            return;
+          };
+        }
+      }
+      console.log('begin the game!!!');
+      setInterval(function () {
+        ioGame.to(roomName).emit('countdown');
+      }, GAME_TIMER);
     }
   });
 });

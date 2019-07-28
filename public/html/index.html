@@ -76,7 +76,7 @@
       Cookies.set('username', '');
       Cookies.set('roomname', '');
 
-      $('#room-name').val('Room ' + Phaser.Math.Between(0, 100000));
+      $('#room-name').val('Room ' + Math.floor(Math.random() * 10));
 
       $('#create-room').on('click', function () {
         let roomName = $('#room-name').val();
