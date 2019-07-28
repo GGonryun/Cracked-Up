@@ -40,18 +40,19 @@ ioGame.on('connection', function (socket) {
     let player = {
       id: socket.id,
       z: 0,
-      x: Math.floor(Math.random() * 2000) + 50,
+      x: Math.floor(Math.random() * 400) + 50,
       y: Math.floor(Math.random() * 800) + 50,
       size: 2,
       name: userName,
       room: roomName
     };
 
-    let waterdropPos = { x: 2200 / 2, y: 1080 / 1.10 }
+    let waterdropPos = { x: 2200 / 1.2, y: 1080 / 1.10 }
     if (!_games.has(roomName)) {
       game = {
         players: {},
         waterdrop: { x: waterdropPos.x, y: waterdropPos.y },
+        inProgress: false,
       };
       game.players[socket.id] = player;
       _games.set(roomName, game);
@@ -90,18 +91,18 @@ ioGame.on('connection', function (socket) {
     }
   });
 
-  socket.on('begin game', function (roomName) {
-    let game = _games.get(roomName);
-    game.inProgress = true;
-    setInterval(function () {
-      ioGame.to(roomName).emit('play game');
-      ioGame.to(roomName).emit('countdown');
-    }, 1000);
-  });
-
-  socket.on('remove waterdrop', function (roomName) {
+  socket.on('remove waterdrop', function (roomName, inProgress) {
     let game = _games.get(roomName);
     if (game) {
+      if (!game.inProgress && inProgress) {
+        //start game on first star;
+        game.inProgress = true;
+        ioGame.to(roomName).emit('play game'); //todo: CONSUME this.
+
+        setInterval(function () {
+          ioGame.to(roomName).emit('countdown');
+        }, 1000);
+      }
       let newPos = { x: game.waterdrop.x + 1000, y: game.waterdrop.y + ((Math.random() * 200) - 100) }
       game.waterdrop = newPos;
       ioGame.to(roomName).emit('create waterdrop', newPos.x, newPos.y);

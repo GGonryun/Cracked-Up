@@ -86,7 +86,6 @@ function create() {
       friend.animationState = vector3.z;
       //friend.anims.play();
     }
-    console.log(jumpingFriends);
   });
 
   gameSocket.on('create waterdrop', function (x, y) {
@@ -126,7 +125,12 @@ function update() {
       player.setVelocityX(0);
       z = 0;
     }
-
+    let x = player.x;
+    let y = player.y;
+    if (oldPosition && (Math.abs(x - oldPosition.x) > frameRate || Math.abs(y - oldPosition.y) > frameRate || z != oldPosition.z)) {
+      gameSocket.emit('player moved', Cookies.get('roomname'), { x, y, z });
+      oldPosition = { x, y, z };
+    }
   }
 }
 
@@ -158,7 +162,8 @@ function createWaterdrop(vector2) {
   }
   waterdrop = this.physics.add.sprite(vector2.x, vector2.y, 'waterdrop').setDisplaySize(60, 60);
   this.physics.add.overlap(player, waterdrop, function (p, w) {
-    socket.emit('remove waterdrop', Cookies.get('roomname'));
+    inProgress |= true;
+    socket.emit('remove waterdrop', Cookies.get('roomname'), inProgress);
   });
 }
 
