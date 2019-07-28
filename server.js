@@ -18,10 +18,12 @@ app.use(express.static(__dirname + '/public'));
 app.use(express.static(__dirname + 'node_modules/jquery/dist'));
 
 //routes
+app.get('/gyro', function (req, res) {
+  res.sendFile(__dirname + '/public/gyro/index.html')
+})
 app.get('/', function (req, res) {
   res.sendFile(__dirname + '/public/html/index.html');
 });
-
 
 app.get('/game', function (req, res) {
   res.sendFile(__dirname + '/public/html/game.html');
@@ -29,26 +31,84 @@ app.get('/game', function (req, res) {
 
 //game management;
 let _games = new Map();
-let _players = new Map();
 
 ioGame.on('connection', function (socket) {
   console.log(`A new socket ${socket.id} has entered the game!`);
-  socket.on('load game', function (roomName, userName) {
+
+  socket.on('login game', function (roomName, userName) {
+    let game;
+    let player = {
+      id: socket.id,
+      z: 0,
+      x: Math.floor(Math.random() * 2000) + 50,
+      y: Math.floor(Math.random() * 800) + 50,
+      size: 2,
+      name: userName,
+      room: roomName
+    };
+
+    let waterdropPos = { x: 2200 / 2, y: 1080 / 1.10 }
     if (!_games.has(roomName)) {
-      _games.set(roomName, {
-        players: [socket.id],
-      });
+      game = {
+        players: {},
+        waterdrop: { x: waterdropPos.x, y: waterdropPos.y },
+      };
+      game.players[socket.id] = player;
+      _games.set(roomName, game);
     }
     else {
-      _games.get(roomName).players.push(socket.id);
+      game = _games.get(roomName);
+      game.players[socket.id] = player;
     }
-
     socket.join(roomName);
+    socket.emit('update players', game.players);
+    socket.to(roomName).emit('create player', player);
     console.log(`User ${userName} has entered ${roomName}`);
-    ioGame.to(roomName).emit('test', roomName);
+    ioGame.to(roomName).emit('create waterdrop', waterdropPos.x, waterdropPos.y);
   });
 
+  socket.on('disconnect', function () {
+    let roomName;
+    let player;
+    Array.from(_games.values()).forEach(function (game) {
+      if (game.players.hasOwnProperty(socket.id)) {
+        player = game.players[socket.id];
+        roomName = player.room;
+        delete game[socket.id];
+      }
+    });
+    socket.to(roomName).emit('remove player', player);
+  });
+
+  socket.on('player moved', function (roomName, vector3) {
+    let game = _games.get(roomName);
+    if (game) {
+      let player = game.players[socket.id];
+      if (player) {
+        socket.to(roomName).emit('player movement', player.name, vector3);
+      }
+    }
+  });
+
+  socket.on('begin game', function (roomName) {
+    let game = _games.get(roomName);
+    game.inProgress = true;
+    setInterval(function () {
+      ioGame.to(roomName).emit('play game');
+      ioGame.to(roomName).emit('countdown');
+    }, 1000);
+  });
+
+  socket.on('remove waterdrop', function (roomName) {
+    let game = _games.get(roomName);
+    if (game) {
+      let newPos = { x: game.waterdrop.x + 1000, y: game.waterdrop.y + ((Math.random() * 200) - 100) }
+      game.waterdrop = newPos;
+      ioGame.to(roomName).emit('create waterdrop', newPos.x, newPos.y);
+    }
+  });
 });
+
 
 //lobby management
 let _rooms = new Map();

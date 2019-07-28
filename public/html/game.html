@@ -4,23 +4,22 @@
 <head>
   <script></script>
   <script src='/js/phaser.min.js'></script>
-  <script src='/js/jquery.min.js'></script>
   <script src='/socket.io/socket.io.js'></script>
   <script src="https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js"></script>
+  <script src='js/gyro.js'></script>
+  <script src='js/game.js'></script>
+  <script src='/js/jquery.min.js'></script>
   <title>Game in Progress</title>
+  <script>
+    var socket = io('/game');
+  </script>
 </head>
 
 <body>
   <script>
-    var socket = io('/game');
-
-    socket.emit('load game', Cookies.get('roomname'), Cookies.get('username'));
-
-    socket.on('test', function (roomName) {
-      console.log('ack i am in game room: ' + roomName);
-    });
-
   </script>
+  <div id='status'></div>
+  <div id="game"></div>
 </body>
 
 </html>
