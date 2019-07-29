@@ -6,8 +6,29 @@
   <script src='/js/jquery.min.js'></script>
   <script src='/socket.io/socket.io.js'></script>
   <script src='/js/phaser.min.js'></script>
-  <script src="https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js"></script>
-  <link rel='stylesheet' href='css/rpgui.min.css'>
+  <script src='https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js'></script>
+  <link href="../rpggui/rpgui.css" rel="stylesheet" type="text/css">
+  <script src="../rpggui/rpgui.js"></script>
+  <style>
+    .rpgui-button {
+      padding: 20px 20px 20px 20px;
+    }
+
+    .rpgui-list-imp {
+      min-height: 100px;
+    }
+
+    .scrollable {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      border: 15px solid orange;
+      overflow-y: scroll;
+
+    }
+  </style>
 </head>
 
 <body>
@@ -34,7 +55,7 @@
         let capacity = room.capacity;
         let isFull = occupancy == capacity;
 
-        $('#rooms').append(`<li><button id='${roomId}' ${isFull ? 'disabled' : ''}>Join ${room.name} [${occupancy}/${capacity}]</button></li>`);
+        $('#rooms').append(`<li><button class='rpgui-button' id='${roomId}' ${isFull ? 'disabled' : ''}>Join ${room.name} [${occupancy}/${capacity}]</button></li>`);
         $('#' + roomId).on('click', function () {
           socket.emit('join room', room.name);
         });
@@ -76,7 +97,7 @@
       Cookies.set('username', '');
       Cookies.set('roomname', '');
 
-      $('#room-name').val('Room ' + Math.floor(Math.random() * 10));
+      $('#room-name').val('Room ' + Math.floor(Math.random() * 10000));
 
       $('#create-room').on('click', function () {
         let roomName = $('#room-name').val();
@@ -95,31 +116,34 @@
 
     });
   </script>
-  <div>
-    <h1>Welcome to the game!</h1>
-  </div>
-  <div>
-    <h1>Status:</h1>
-    <span>
-      <h3>Players connected: </h3>
-    </span>
-    <ul id='players'></ul>
-  </div>
-  <div>
+  <div class='rpgui-content rpgui-cursor-default rpgui-container framed-gray'>
 
-    <h1>Rooms:</h1>
-    <div>
-      <div id='room-creation'>
-        <ul id='rooms'></ul>
-        Room Name: <input type='text' id='room-name' value=''>
-        <button id='create-room'>Create Room</button>
+    <div class='rpgui-container framed scrollable'>
+      <img src="assets/splash.jpg" alt="Game over" width="640">
+      <div>
+        <hr class='golden'>
       </div>
-      <div id='room-controls' hidden>
-        <h1 id='room-title'>ROOM</h1>
-        <h2>Players:</h2>
-        <ul id='room-players'></ul>
-        <button id='launch-game'>Start Game</button>
-        <button id='leave-room'>Leave Room</button>
+      <div>
+        <h1>Status:</h1>
+        <h3>Players connected: </h3>
+        <ul class="rpgui-list-im" id='players'>
+        </ul>
+      </div>
+
+      <h1>Rooms:</h1>
+      <div>
+        <div class='' id='room-creation'>
+          <ul class="rpgui-list-imp" id='rooms'></ul>
+          Room Name: <input type='text' id='room-name' value=''>
+          <button class="rpgui-button" id='create-room'>Create Room</button>
+        </div>
+        <div id='room-controls' hidden>
+          <h1 id='room-title'>ROOM</h1>
+          <h2>Players:</h2>
+          <ul class="rpgui-list-imp" id='room-players'></ul>
+          <button class="rpgui-button" id='launch-game'>Start Game</button>
+          <button class="rpgui-button" id='leave-room'>Leave Room</button>
+        </div>
       </div>
     </div>
   </div>

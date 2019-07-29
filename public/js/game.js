@@ -1,18 +1,20 @@
 const SCREEN_WIDTH = 1100;
 const SCREEN_HEIGHT = 540;
-const PLAYER_SCALE = .35;
+const PLAYER_SCALE = .6;
 const PLAYER_SIZE = 50;
 const PLAYER_SPEED = 600;
 const PLAYER_JUMP = 1500;
 const WEIGHT_SPEED_INFLUENCE = .7;
 const WEIGHT_JUMP_INFLUENCE = 1.2;
 const WATERDROP_SIZE = 50;
-const FRAME_RATE = 1;
+const FRAME_RATE = 2;
 const GRAVITY_BASE = 3000;
 const GRAVITY_REDUCED = 1000;
 const SUN_BASE = Phaser.Display.Color.HexStringToColor('#ffffff');
-const SUN_ANGRY = Phaser.Display.Color.HexStringToColor('#ff0000');
+const SUN_ANGRY = Phaser.Display.Color.HexStringToColor('#AA0000');
 const SUN_FLASH = Phaser.Display.Color.HexStringToColor('#FADA5E');
+const SUN_DROP_COLOR = Phaser.Display.Color.HexStringToColor('#FF0000');
+const SUN_DURATION = 8000; //change GAME_TIMER in server too
 
 var config = {
   type: Phaser.AUTO,
@@ -55,21 +57,33 @@ let gameSocket;
 let oldPosition;
 let pointer;
 let waterdrop;
+let sundrops = new Map();
 let size;
 let sun;
 let background;
 let floor;
 let platforms;
 let tween;
+let dummy;
 
+function removeElement(elementId) {
+  // Removes an element from the document
+  var element = document.getElementById(elementId);
+  element.parentNode.removeChild(element);
+}
 
+function addElement(parentId, elementTag, elementId, html) {
+  // Adds an element to the document
+  var p = document.getElementById(parentId);
+  var newElement = document.createElement(elementTag);
+  newElement.setAttribute('id', elementId);
+  newElement.innerHTML = html;
+  p.appendChild(newElement);
+}
 function preload() {
-  //this.load.image('water-boi', 'assets/water-boi.png');
   this.load.image('waterdrop', 'assets/waterdrop.png');
   this.load.image('sun', 'assets/sun.png');
-  this.load.spritesheet('waterboi', '../assets/dude3.png', { frameWidth: 104, frameHeight: 104 });
-
-  //this.load.image('background', 'assets/background.bmp');
+  this.load.spritesheet('waterboi', '../assets/dude2.png', { frameWidth: 59, frameHeight: 59 });
   this.load.image('platform', 'assets/platform.bmp');
 }
 
@@ -90,20 +104,21 @@ function create() {
     brickX += f.width * 2;
   }
 
-  sun = this.add.image(100, 100, 'sun').setScrollFactor(0);
+  sun = this.add.image(SCREEN_WIDTH / 1.05, 50, 'sun').setScrollFactor(0);
   self.tweenStep = 0;
   tween = self.tweens.add({
     targets: self,
     tweenStep: 100,
     onUpdate: () => {
-
       let col = Phaser.Display.Color.Interpolate.ColorWithColor(SUN_BASE, SUN_ANGRY, 100, self.tweenStep);
       let colourInt = Phaser.Display.Color.GetColor(col.r, col.g, col.b);
       sun.setTint(colourInt);
     },
-    duration: 5000,
-    yoyo: true // Return to first tint
+    duration: SUN_DURATION,
+    repeat: 0,
+    yoyo: false
   });
+  tween.stop();
 
   // animations
   this.anims.create({
@@ -159,7 +174,8 @@ function create() {
         friend.setPosition(friendInfo.x, friendInfo.y);
         friend.animationState = friendInfo.z;
         friend.setScale(friendInfo.size * PLAYER_SCALE);
-        //friend.anims.play();
+        let animation = friendInfo.z === 2 ? 'idle' : friendInfo.z === 1 ? 'right' : friendInfo.z === -1 ? 'left' : 'idle'
+        friend.anims.play(animation, true);
       } else {
         friend.setTint(0xff0000);
         //player.anims.play('turn');
@@ -174,26 +190,45 @@ function create() {
     createWaterdrop.call(self, { x, y });
   });
 
-  gameSocket.on('start game', function () {
-    console.log('start game!');
+  gameSocket.on('create sundrop', function (vector2) {
+    createSundrop.call(self, { x: Math.floor(vector2.x), y: Math.floor(vector2.y) });
+  });
+
+  gameSocket.on('remove sundrop', function (vector2) {
+    let delDrop = sundrops.get(vector2.x);
+    sundrops.delete(delDrop);
+    delDrop.destroy();
+  });
+  gameSocket.on('start cinematic', function () {
     //timer for intro.
     //emit that we're ready
     setTimeout(function () {
+      self.physics.pause();
+    }, 400);
+    setTimeout(function () {
+      tween.restart();
       gameSocket.emit('player ready', Cookies.get('roomname'));
-    }, Math.random() * 5000);
+    }, Math.random() * 10000);
 
   })
-
-  gameSocket.on('countdown', function () {
-    console.log('time has passed ' + _friends.size + ' ' + suddenDeath + ' ' + size);
-    if (_friends.size < 1 || size < 1 || suddenDeath) { }
+  gameSocket.on('enable controls', function () {
+    tween.restart();
+    self.physics.resume();
+  })
+  gameSocket.on('countdown', function (suddenDeath) {
+    if (_friends.size < 1 || size < 1 || suddenDeath) {
+    }
     else {
-      shrinkPlayer.call(this);
+      tween.restart();
+      shrinkPlayer.call(self);
       gameSocket.emit('player update', Cookies.get('roomname'), null, size);
     }
-    if (_friends.size < 1) {
-      console.log("YOU WIN!");
-    }
+  });
+  gameSocket.on('game over', function () {
+    console.log('gg');
+    removeElement('game');
+    let redirectTo = `${document.URL}over`;
+    window.location.replace(redirectTo);
   });
 
 }
@@ -238,7 +273,6 @@ function update() {
 
     }
 
-
     let x = player.x;
     let y = player.y;
     if (oldPosition && (Math.abs(x - oldPosition.x) > FRAME_RATE || Math.abs(y - oldPosition.y) > FRAME_RATE || z != oldPosition.z)) {
@@ -266,17 +300,32 @@ function addPlayer(playerInfo) {
   player = this.physics.add.sprite(playerInfo.x, playerInfo.y, 'waterboi').setDisplaySize(PLAYER_SIZE, PLAYER_SIZE);
   player.setBounce(0.3);
   player.body.setGravityY(GRAVITY_BASE);
-  size = 2;
+  size = playerInfo.size;
   oldPosition = { x: playerInfo.x, y: playerInfo.y, z: 0 };
   player.setScale(size * PLAYER_SCALE);
   player.body.setCollideWorldBounds(true);
   player.body.onWorldBounds = true;
   this.cameras.main.setBackgroundColor('#FEDBB7')
   this.cameras.main.startFollow(player);
-  this.cameras.main.setFollowOffset(100, SCREEN_HEIGHT / 4);
+  this.cameras.main.setFollowOffset(100, SCREEN_HEIGHT / 5);
   this.physics.add.collider(player, floor);
   player.anims.play('idle', true);
 
+}
+
+function createSundrop(vector2) {
+  let sundrop = this.physics.add.sprite(vector2.x, vector2.y, 'waterdrop').setDisplaySize(WATERDROP_SIZE, WATERDROP_SIZE);
+  sundrop.setTint(SUN_ANGRY);
+  sundrops.set(vector2.x, sundrop);
+  sundrop.worldPosition = vector2;
+  this.physics.add.overlap(player, sundrop, function (p, s) {
+    let delDrop = sundrops.get(s.worldPosition.x);
+    sundrops.delete(delDrop);
+    delDrop.destroy();
+    shrinkPlayer.call(this);
+    socket.emit('remove sundrop', Cookies.get('roomname'), s.worldPosition);
+    socket.emit('player update', Cookies.get('roomname'), null, size);
+  });
 }
 
 function createWaterdrop(vector2) {

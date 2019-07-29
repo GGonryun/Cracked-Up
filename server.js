@@ -12,7 +12,7 @@ let io = require('socket.io')(server);
 let port = 3000;
 const ioGame = io.of('/game');
 const ioLobby = io.of('/lobby');
-const GAME_TIMER = 5000;
+const GAME_TIMER = 8000;
 
 server.listen(port, function () {
   console.log("Listening on port 3000!");
@@ -23,11 +23,12 @@ app.use(express.static(__dirname + '/public'));
 app.use(express.static(__dirname + 'node_modules/jquery/dist'));
 
 //routes
-app.get('/gyro', function (req, res) {
-  res.sendFile(__dirname + '/public/gyro/index.html')
-})
 app.get('/', function (req, res) {
   res.sendFile(__dirname + '/public/html/index.html');
+});
+app.get('/gameover', function (req, res) {
+  res.sendFile(__dirname + '/public/html/gameover.html');
+
 });
 
 app.get('/game', function (req, res) {
@@ -47,7 +48,7 @@ ioGame.on('connection', function (socket) {
       z: 0,
       x: Math.floor(Math.random() * SCREEN_WIDTH / 4) + 200,
       y: Math.floor(Math.random() * BACKGROUND_HEIGHT / 2) + 100,
-      size: 2,
+      size: 3,
       name: userName,
       room: roomName,
       ready: false
@@ -58,6 +59,7 @@ ioGame.on('connection', function (socket) {
       game = {
         players: {},
         waterdrop: { x: waterdropPos.x, y: waterdropPos.y },
+        sundrop: { x: waterdropPos.x, y: waterdropPos.y },
         inProgress: false,
       };
       game.players[socket.id] = player;
@@ -97,9 +99,9 @@ ioGame.on('connection', function (socket) {
         player.z = vector3 ? vector3.z : player.z;
         player.size = size;
         socket.to(roomName).emit('update player', player);
-        if (size < 0) {
+        if (size <= 0) {
           delete game.players[socket.id];
-          if (game.players.length < 1) {
+          if (game.players.length < 2) {
             _games.delete(game);
           }
         }
@@ -113,34 +115,63 @@ ioGame.on('connection', function (socket) {
       //start game on first star;
       if (!game.inProgress && inProgress) {
         game.inProgress = true;
-        ioGame.to(roomName).emit('start game'); //todo: CONSUME this.
+        ioGame.to(roomName).emit('start cinematic');
       }
       let y = game.waterdrop.y + (Math.random() * -250) + 200;
       y = y < BACKGROUND_HEIGHT / 1.1 ? y : y - SCREEN_HEIGHT / 2;
       let x = game.waterdrop.x + SCREEN_WIDTH;
       let newPos = { x, y };
+      ioGame.to(roomName).emit('create sundrop', { x: game.waterdrop.x + 750, y: game.waterdrop.y });
       game.waterdrop = newPos;
       ioGame.to(roomName).emit('create waterdrop', newPos.x, newPos.y);
+
     }
+  });
+
+  socket.on('remove sundrop', function (roomName, vector2) {
+    socket.to(roomName).emit('remove sundrop', vector2);
+
   });
 
   socket.on('player ready', function (roomName) {
     let game = _games.get(roomName);
     if (game) {
       let player = game.players[socket.id];
-      player.ready = true;
-      console.log('player is ready');
-      for (let id in game.players) {
-        if (game.players.hasOwnProperty(id)) {
-          if (game.players[id].ready == false) {
-            return;
-          };
+      if (player) {
+        player.ready = true;
+        for (let id in game.players) {
+          if (game.players.hasOwnProperty(id)) {
+            if (game.players[id].ready == false) {
+              return;
+            };
+          }
         }
+        ioGame.to(roomName).emit('enable controls');
+
+        console.log('begin the game!!!');
+        let gameLoop = setInterval(function () {
+          let suddenDeath = true;
+          for (let id in game.players) {
+            if (game.players.hasOwnProperty(id)) {
+              suddenDeath &= game.players[id].size < 2;
+            };
+          }
+          console.log(Object.keys(game.players).length);
+          if (Object.keys(game.players).length > 1) {
+            ioGame.to(roomName).emit('countdown', suddenDeath);
+            ioGame.to(roomName).emit('create sundrop', { x: game.waterdrop.x + 1000, y: game.waterdrop.y - 50 });
+            ioGame.to(roomName).emit('create sundrop', { x: game.waterdrop.x + 200, y: game.waterdrop.y - 75 });
+            ioGame.to(roomName).emit('create sundrop', { x: game.waterdrop.x + 500, y: game.waterdrop.y - 25 });
+            ioGame.to(roomName).emit('create sundrop', { x: game.waterdrop.x + 700, y: game.waterdrop.y - 100 });
+          }
+          else {
+            ioGame.to(roomName).emit('game over');
+            clearInterval(gameLoop);
+          }
+
+        }, GAME_TIMER);
       }
-      console.log('begin the game!!!');
-      setInterval(function () {
-        ioGame.to(roomName).emit('countdown');
-      }, GAME_TIMER);
+
     }
   });
 });
