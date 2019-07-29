@@ -17,7 +17,7 @@ phaser3.js
 jquery.js
 express.js
 node.js
-npm.js
+npm
 js.cookies.js
 rpggui.css
 ngrok.io
