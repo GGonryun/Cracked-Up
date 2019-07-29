@@ -1,7 +1,7 @@
 # Cracked Up
 https://itch.io/jam/sd-gamejam-2019/rate/457453#post-834706
 
-![Cracked Up](public\assets\splash.jpg)
+![Cracked Up](./public/assets/splash.jpg)
 
 ## How to install
 1. Extract files, enter directory and open cmd/shell/bash at this location.
@@ -23,8 +23,8 @@ rpggui.css
 ngrok.io
 
 # Lobby System
-![Lobby](media\screen1.png)
+![Lobby](./media/screen1.png)
 
 
 # Mobile Client
-![Cracked Up](media\screen2.png)
+![Cracked Up](./media/screen2.png)
